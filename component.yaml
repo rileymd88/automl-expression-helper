@@ -1,0 +1,15 @@
+componentId: automl-expression-helper
+discussionSlackChannel: '#geoanalytics'
+botSlackChannel: '#geoanalytics'
+owningTeam: geoanalytics-visualizations
+publishedPackages:
+  npm:
+    ids:
+      - automl-expression-helper
+production-approval: required
+production-approval/compliance/antivirus: required
+production-approval/compliance/api-governance: not-applicable
+primaryChampion: vcellu
+releaseTrackBranches:
+  - main
+  - alpha

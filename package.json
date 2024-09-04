@@ -1,0 +1,107 @@
+{
+  "name": "automl-expression-helper",
+  "version": "1.0.0",
+  "packageManager": "yarn@1.22.19",
+  "description": "AutoML expression helper",
+  "author": "Riley MacDonald",
+  "license": "MIT",
+  "keywords": [
+    "qlik",
+    "nebula",
+    "stardust",
+    "navigation"
+  ],
+  "files": [
+    "dist",
+    "automl-expression-helper-ext",
+    "api-spec/spec.json",
+    "core"
+  ],
+  "main": "dist/automl-expression-helper.js",
+  "systemjs": "dist/automl-expression-helper.systemjs.js",
+  "scripts": {
+    "build": "nebula build --core core --mode production --config nebula.config.cjs",
+    "build:dev": "nebula build --watch --core core --mode development --config nebula.config.cjs",
+    "lint": "eslint .",
+    "start": "nebula serve --type automl-expression-helper --config nebula.config.cjs",
+    "sense": "nebula build --core core --mode production --config nebula.config.cjs && nebula sense --meta src/meta.json && cd .. && source ../extension_build/bin/activate && python3 build.py extension",
+    "test": "yarn test:unit",
+    "test:unit": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report test/integration/test-report",
+    "types:check": "tsc --noEmit",
+    "copy:ext": "node tools/copyExt.mjs",
+    "build:dev:ext": "yarn build:dev && yarn sense && yarn copy:ext",
+    "spec": "sy from-jsdoc -c ./api-spec/props.conf.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qlik-trial/automl-expression-helper.git"
+  },
+  "prettier": "@qlik/prettier-config",
+  "eslintConfig": {
+    "extends": [
+      "@qlik/eslint-config-react/typescript",
+      "@qlik/eslint-config-react/jest"
+    ],
+    "root": true
+  },
+  "dependencies": {
+    "@emotion/react": "11.11.1",
+    "@emotion/styled": "11.11.0",
+    "@mui/icons-material": "^5.14.3",
+    "@mui/material": "5.14.4",
+    "@qlik-trial/sprout": "3.2.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.22.10",
+    "@babel/preset-env": "7.22.10",
+    "@babel/preset-react": "7.22.5",
+    "@babel/preset-typescript": "7.22.5",
+    "@commitlint/cli": "17.7.1",
+    "@commitlint/config-conventional": "17.7.0",
+    "@nebula.js/cli": "4.3.0",
+    "@nebula.js/cli-build": "4.3.0",
+    "@nebula.js/cli-sense": "4.3.0",
+    "@nebula.js/cli-serve": "4.3.0",
+    "@nebula.js/stardust": "4.3.0",
+    "@playwright/test": "1.37.0",
+    "@qlik-trial/frontend-tools": "0.14.1",
+    "@qlik/eslint-config": "0.4.9",
+    "@qlik/eslint-config-react": "0.1.0",
+    "@qlik/prettier-config": "0.3.0",
+    "@qlik/sdk": "0.23.1",
+    "@qlik/tsconfig": "0.1.6",
+    "@rollup/plugin-typescript": "11.1.2",
+    "@scriptappy/cli": "0.8.0",
+    "@scriptappy/from-jsdoc": "0.17.0",
+    "@testing-library/jest-dom": "5.17.0",
+    "@testing-library/react": "14.0.0",
+    "@testing-library/react-hooks": "8.0.1",
+    "@testing-library/user-event": "14.4.3",
+    "@types/jest": "29.5.3",
+    "@types/react": "18.2.20",
+    "@types/react-dom": "18.2.7",
+    "husky": "8.0.3",
+    "jest": "29.6.2",
+    "jest-environment-jsdom": "29.6.2",
+    "jest-mock-extended": "^3.0.4",
+    "jsdom": "22.1.0",
+    "lint-staged": "13.2.3",
+    "prettier": "2.8.8",
+    "typescript": "5.1.6"
+  },
+  "peerDependencies": {
+    "@nebula.js/stardust": "^4.2.0"
+  },
+  "engines": {
+    "node": ">=18.10.0",
+    "yarn": ">=1.22.0"
+  }
+}
