@@ -5,19 +5,26 @@ import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@qlik-trial/sprout/icons/react/Add';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
-import { useTheme } from '@mui/material';
+import { useTheme, Tabs, Tab } from '@mui/material';
 
 interface SearchableMenuButtonProps {
   options: string[];
+  fields: string[];
   handleFeatureChange: (expression: string, index: number) => void;
   index: number;
 }
 
-const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, handleFeatureChange, index }) => {
+const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({
+  options,
+  fields,
+  handleFeatureChange,
+  index
+}) => {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchText, setSearchText] = useState('');
+  const [tabValue, setTabValue] = useState(0);
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -30,7 +37,8 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
     setSearchText('');
   };
 
-  const handleMenuSelect = (expression: string) => {
+  const handleMenuSelect = (item: string) => {
+    const expression = tabValue === 0 ? `[${item}]` : item;
     handleFeatureChange(expression, index);
     handleClose();
   };
@@ -39,13 +47,20 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
     setSearchText(event.target.value);
   };
 
-  const filteredOptions = options.filter((option) => option.toLowerCase().includes(searchText.toLowerCase()));
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+    setSearchText('');
+  };
+
+  const currentItems = tabValue === 0 ? fields : options;
+  const filteredItems = currentItems.filter((item) =>
+    item.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   const handleEnter = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && filteredItems.length > 0) {
       event.preventDefault();
-      handleFeatureChange(filteredOptions[0], index);
-      handleClose();
+      handleMenuSelect(filteredItems[0]);
     }
   };
 
@@ -53,21 +68,19 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
     <div>
       <Button
         sx={{
+          maxWidth: '100%',
+          maxHeight: 32,
           whiteSpace: 'nowrap',
           textOverflow: 'ellipsis',
           overflow: 'hidden',
-          maxWidth: '100%',
-          maxHeight: 32,
-          display: 'inline-block',
         }}
         variant="outlined"
         color="inherit"
-        startIcon={<AddIcon height="16px" />}
         aria-controls="searchable-menu"
         aria-haspopup="true"
         onClick={handleClick}
       >
-        Use variable
+        + Add
       </Button>
       <Menu
         id="searchable-menu"
@@ -76,9 +89,36 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
         onClose={handleClose}
         MenuListProps={{
           'aria-labelledby': 'search-menu',
+          // Prevent Menu from adjusting its size based on content
+          style: { padding: 0 }
+        }}
+        // Set fixed width and max height with scroll
+        PaperProps={{
+          sx: {
+            width: 300, // Fixed width
+            maxHeight: 400, // Fixed max height
+            display: 'flex',
+            flexDirection: 'column',
+            // Ensure the Menu content fills the Paper
+            '& .MuiMenu-list': {
+              padding: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+            },
+          },
         }}
       >
-        <MenuItem onKeyDown={(e) => e.stopPropagation()}>
+        {/* Tabs Section */}
+        <MenuItem disableRipple>
+          <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
+            <Tab label="Fields" />
+            <Tab label="Variables" />
+          </Tabs>
+        </MenuItem>
+
+        {/* Search Bar Section */}
+        <MenuItem disableRipple onKeyDown={(e) => e.stopPropagation()}>
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <TextField
               sx={{
@@ -90,9 +130,7 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
                   [theme.breakpoints.up('md')]: {
                     width: '20ch',
                   },
-                  borderBottom: 'none', // Remove the bottom line
-
-                  // Reset default hover styles (optional)
+                  borderBottom: 'none',
                   '&:hover': {
                     borderBottom: 'none',
                   },
@@ -106,11 +144,20 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({ options, ha
             />
           </Box>
         </MenuItem>
-        {filteredOptions.map((option) => (
-          <MenuItem key={option} onClick={() => handleMenuSelect(option)}>
-            {option}
-          </MenuItem>
-        ))}
+
+        {/* Items List Section */}
+        <Box
+          sx={{
+            overflowY: 'auto',
+            flexGrow: 1,
+          }}
+        >
+          {filteredItems.map((item) => (
+            <MenuItem key={item} onClick={() => handleMenuSelect(item)}>
+              {item}
+            </MenuItem>
+          ))}
+        </Box>
       </Menu>
     </div>
   );

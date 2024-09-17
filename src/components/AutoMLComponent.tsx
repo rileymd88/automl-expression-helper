@@ -115,6 +115,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
   const [selectedMasterItem, setSelectedMasterItem] = useState<MasterItem | null>(null);
   const [dialogTitle, setDialogTitle] = useState('Create AutoML expression');
   const [appSpaceId, setAppSpaceId] = useState<string | null>(null);
+  const [fields, setFields] = useState<string[]>([]);
 
   const mapFeatures = async (tmpFeatures: Feature[]) => {
     if (!tmpFeatures || tmpFeatures.length === 0) {
@@ -463,6 +464,16 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
     }
   }, [connection, mode]);
 
+  useEffect(() => {
+    if (app) {
+      const fetchFields = async () => {
+        const fieldList = await getFields(app);
+        setFields(fieldList);
+      };
+      fetchFields();
+    }
+  }, [app]);
+
   return (
     <Box 
       className="pp-component pp-string-component pp-automl-expression-component"
@@ -579,6 +590,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
                                     (v) => !v.qIsConfig && !v.qIsScriptCreated
                                   )
                                   .map((v) => v.qName)}
+                                fields={fields}
                                 handleFeatureChange={handleFeatureChange}
                                 index={index}
                               />
