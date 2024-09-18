@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Snackbar, Alert, RadioGroup, FormControlLabel, Radio, Box } from "@mui/material";
-
 import {
+  Snackbar,
+  Alert,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -53,7 +57,7 @@ import type {
 } from "../types";
 
 import { stardust } from "@nebula.js/stardust";
-
+import CreateDataConnection from "./CreateDataConnection";
 
 const StyledPaper: React.FC<PaperProps> = (props) => (
   <Paper sx={{ padding: "8px", marginBottom: "10px" }} {...props} />
@@ -72,14 +76,11 @@ const StyledDivider: React.FC<DividerProps> = (props) => (
   <Divider sx={{ marginTop: "10px" }} {...props} />
 );
 
-// metadata.expression
-// automl.view.deployment
-// automl.view.createExpression
 interface AutoMLExpressionComponentProps {
-    app: EngineAPI.IApp | undefined;
-    translator: stardust.Translator;
-    open: boolean;
-    setOpen: (open: boolean) => void;
+  app: EngineAPI.IApp | undefined;
+  translator: stardust.Translator;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 interface MasterItem {
@@ -87,7 +88,12 @@ interface MasterItem {
   title: string;
 }
 
-const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpressionComponentProps) => {
+const AutoMLExpressionComponent = ({
+  app,
+  translator,
+  open,
+  setOpen,
+}: AutoMLExpressionComponentProps) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("md"));
   const [loading, setLoading] = useState(false);
@@ -110,46 +116,66 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
   const [masterItemName, setMasterItemName] = useState<string>("");
   const [isCreatingMasterItem, setIsCreatingMasterItem] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [mode, setMode] = useState<"create" | "edit">("create");
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
-  const [selectedMasterItem, setSelectedMasterItem] = useState<MasterItem | null>(null);
-  const [dialogTitle, setDialogTitle] = useState('Create AutoML expression');
+  const [selectedMasterItem, setSelectedMasterItem] = useState<
+    MasterItem | null
+  >(null);
+  const [dialogTitle, setDialogTitle] = useState("Create AutoML expression");
   const [appSpaceId, setAppSpaceId] = useState<string | null>(null);
   const [fields, setFields] = useState<string[]>([]);
+  const [createConnectionOpen, setCreateConnectionOpen] = useState(false);
+  const [newConnectionId, setNewConnectionId] = useState<string | null>(null);
 
   const mapFeatures = async (tmpFeatures: Feature[]) => {
     if (!tmpFeatures || tmpFeatures.length === 0) {
       return;
     }
-    if (!app) {
-      setFeatures(tmpFeatures);
-      return;
-    }
-    try {
-      const fields = await getFields(app);
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i];
-        for (let j = 0; j < tmpFeatures.length; j++) {
-          const feat = tmpFeatures[j];
-          if (feat.name === field) {
-            feat.expression = `[${field}]`;
-            tmpFeatures[j] = feat;
+
+    // Initialize expressions with default values
+    tmpFeatures = tmpFeatures.map((feat) => ({
+      ...feat,
+      expression: `[${feat.name}]`,
+    }));
+
+    if (app) {
+      try {
+        const fields = await getFields(app);
+        tmpFeatures.forEach((feat) => {
+          if (fields.includes(feat.name)) {
+            feat.expression = `[${feat.name}]`;
           }
-        }
+        });
+      } catch (error) {
+        console.error("Error in mapFeatures:", error);
       }
-    } catch (error) {
-      return;
     }
     setFeatures(tmpFeatures);
   };
 
-  useEffect(() => {
-    async function setup() {
-      const c = await getConnections();
-      setConnections(c);
-    }
-    setup();
+  const fetchConnections = useCallback(async () => {
+    const c = await getConnections();
+    setConnections(c);
+    return c;
   }, []);
+
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
+
+  useEffect(() => {
+    if (newConnectionId) {
+      const selectNewConnection = async () => {
+        const updatedConnections = await fetchConnections();
+        const newConnection = updatedConnections.find(c => c.id === newConnectionId);
+        if (newConnection) {
+          setConnection(newConnection);
+        }
+        setNewConnectionId(null);
+      };
+      selectNewConnection();
+    }
+  }, [newConnectionId, fetchConnections]);
 
   function isValidType(type: string | undefined) {
     return type === "binary" || type === "multiclass";
@@ -157,11 +183,14 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
 
   async function fetchFeaturesData(c: AutoMLConnection) {
     const f = await getFeatures(c.deploymentId);
-    mapFeatures(f.features);
+    await mapFeatures(f.features);
     return f;
   }
 
-  async function handleReturnFields(c: AutoMLConnection, targetResult: Target) {
+  async function handleReturnFields(
+    c: AutoMLConnection,
+    targetResult: Target
+  ) {
     const { type, field } = targetResult;
     let rfs;
     if (type === "binary") {
@@ -169,9 +198,9 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
     } else if (type === "multiclass") {
       rfs = await getMultiClassReturnFields(c.deploymentId, field);
     }
-    if(rfs !== undefined) {
-        setReturnFields(rfs);
-        setReturnField(rfs[0]);
+    if (rfs !== undefined) {
+      setReturnFields(rfs);
+      setReturnField(rfs[0]);
     }
   }
 
@@ -183,7 +212,11 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
 
   useEffect(() => {
     async function fetchFeatures() {
-      if (mode === 'create' && connection !== null) {
+      if (connection !== null && mode === "create") {
+        if (!app) {
+          console.error("App is undefined");
+          return;
+        }
         setLoading(true);
         try {
           const f = await fetchFeaturesData(connection);
@@ -199,7 +232,13 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
       }
     }
     fetchFeatures();
-  }, [mode, connection, app]);
+  }, [connection, app, mode]);
+
+  useEffect(() => {
+    if (connection && connections.every((c) => c.id !== connection.id)) {
+      setConnections((prevConnections) => [...prevConnections, connection]);
+    }
+  }, [connection, connections]);
 
   useEffect(() => {
     if (app) {
@@ -207,14 +246,13 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
         try {
           let vm = variableModel;
           if (vm === null) {
-            vm = await app.getVariableListObject() as VariableModel;
+            vm = (await app.getVariableListObject()) as VariableModel;
             setVariableModel(vm);
-            return;
           }
           const vs = await vm.getLayout();
           setVariables(vs);
         } catch (error) {
-          console.error('Error loading variables:', error);
+          console.error("Error loading variables:", error);
         }
       };
       loadVariables();
@@ -225,7 +263,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
     if (app) {
       const fetchAppSpaceId = async () => {
         const spaceId = await getAppSpaceId(app);
-        console.log('app space id', spaceId);
+        console.log("app space id", spaceId);
         setAppSpaceId(spaceId);
       };
       fetchAppSpaceId();
@@ -271,7 +309,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
       };
       updateFinalExpression();
     }
-  }, [features, connection, returnField, appSpaceId]);
+  }, [features, connection, returnField, appSpaceId, open]);
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -279,6 +317,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
 
   const handleClose = () => {
     setOpen(false);
+    resetForm();
   };
 
   const handleFeatureChange = (expression: string, index: number) => {
@@ -314,52 +353,55 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
       try {
         const measureDef = {
           qInfo: {
-            qType: 'measure'
+            qType: "measure",
           },
           qMeasure: {
             qLabel: masterItemName,
-            qDef: finalExpression
+            qDef: finalExpression,
           },
           qMetaDef: {
             title: masterItemName,
-            description: '',
+            description: "",
           },
           autoMlExpressionHelper: {
             features,
             connection,
             returnField,
             target,
-            returnFields
-          }
+            returnFields,
+          },
         };
 
-        if (mode === 'create') {
+        if (mode === "create") {
           await app.createMeasure(measureDef);
-        } else if (mode === 'edit' && selectedMasterItem) {
+        } else if (mode === "edit" && selectedMasterItem) {
           const measure = await app.getMeasure(selectedMasterItem.qId);
           await measure.setProperties(measureDef);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         handleClose();
         setShowSuccessToast(true);
       } catch (error) {
-        console.error('Error creating/updating master measure:', error);
+        console.error("Error creating/updating master measure:", error);
       } finally {
         setIsCreatingMasterItem(false);
       }
     }
   };
 
-  const handleCloseToast = (event?: React.SyntheticEvent | Event, reason?: string) => {
-    if (reason === 'clickaway') {
+  const handleCloseToast = (
+    event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") {
       return;
     }
     setShowSuccessToast(false);
   };
 
   useEffect(() => {
-    if (app && mode === 'edit') {
+    if (app && mode === "edit") {
       fetchMasterItems();
     }
   }, [app, mode]);
@@ -370,15 +412,15 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
     try {
       const sessionObject = await app.createSessionObject({
         qInfo: {
-          qType: 'MeasureList'
+          qType: "MeasureList",
         },
         qMeasureListDef: {
-          qType: 'measure',
+          qType: "measure",
           qData: {
-            title: '/qMetaDef/title',
-            tags: '/qMetaDef/tags'
-          }
-        }
+            title: "/qMetaDef/title",
+            tags: "/qMetaDef/tags",
+          },
+        },
       });
 
       const layout = await sessionObject.getLayout();
@@ -392,7 +434,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
             if (measureLayout.autoMlExpressionHelper) {
               return {
                 qId: item.qInfo.qId,
-                title: item.qMeta.title
+                title: item.qMeta.title,
               };
             }
           } catch (error) {
@@ -402,10 +444,12 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
         })
       );
 
-      const validItems = filteredItems.filter((item): item is MasterItem => item !== null);
+      const validItems = filteredItems.filter(
+        (item): item is MasterItem => item !== null
+      );
       setMasterItems(validItems);
     } catch (error) {
-      console.error('Error fetching master items:', error);
+      console.error("Error fetching master items:", error);
     }
   };
 
@@ -421,14 +465,14 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
       setFinalExpression(qDef);
 
       if (autoMlExpressionHelper) {
-        const { 
-          features: featuresData, 
-          connection: connectionData, 
+        const {
+          features: featuresData,
+          connection: connectionData,
           returnField: returnFieldData,
           target: targetData,
-          returnFields: returnFieldsData
+          returnFields: returnFieldsData,
         } = autoMlExpressionHelper;
-        
+
         setFeatures(featuresData);
         setConnection(connectionData);
         setReturnField(returnFieldData);
@@ -436,33 +480,29 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
         setReturnFields(returnFieldsData);
       }
     } catch (error) {
-      console.error('Error loading master item:', error);
+      console.error("Error loading master item:", error);
     }
   };
 
   const handleModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newMode = event.target.value as 'create' | 'edit';
+    const newMode = event.target.value as "create" | "edit";
     setMode(newMode);
-    setDialogTitle(newMode === 'create' ? 'Create AutoML expression' : 'Edit AutoML expression');
-    if (newMode === 'create') {
-      resetForm();
-    }
+    setDialogTitle(
+      newMode === "create"
+        ? "Create AutoML expression"
+        : "Edit AutoML expression"
+    );
+    resetForm();
   };
 
   const resetForm = () => {
-    setMasterItemName('');
-    setFinalExpression('');
+    setMasterItemName("");
+    setFinalExpression("");
     setFeatures([]);
     setConnection(null);
     setReturnField(null);
     setSelectedMasterItem(null);
   };
-
-  useEffect(() => {
-    if(connection && connection.spaceId === 'personal' && mode === 'create') {
-      setMode('create');
-    }
-  }, [connection, mode]);
 
   useEffect(() => {
     if (app) {
@@ -474,21 +514,29 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
     }
   }, [app]);
 
+  const handleCreateConnection = () => {
+    setCreateConnectionOpen(true);
+  };
+
+  const handleConnectionCreated = (newConnection: AutoMLConnection) => {
+    setNewConnectionId(newConnection.id);
+  };
+
   return (
-    <Box 
+    <Box
       className="pp-component pp-string-component pp-automl-expression-component"
-      sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        height: '100%' 
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        height: "100%",
       }}
     >
-      <Button 
-        sx={{ width: '100%' }} 
-        variant="outlined" 
+      <Button
+        sx={{ width: "100%" }}
+        variant="outlined"
         onClick={handleClickOpen}
       >
-        {translator.get('Create AutoML Expression')}
+        {translator.get("Create AutoML Expression")}
       </Button>
       <StyledDialog
         sx={{
@@ -509,7 +557,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
           <Button
             onClick={() => handleClose()}
             data-tid="close-add-bookmark-dialog"
-            sx={{ position: 'absolute', right: 8, top: 8 }}
+            sx={{ position: "absolute", right: 8, top: 8 }}
           >
             <CloseIcon height="12px" />
           </Button>
@@ -523,26 +571,31 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
             </RadioGroup>
           </StyledPaper>
 
-          {mode === 'create' && (
+          {mode === "create" && (
             <StyledPaper>
               <Typography variant="h3">Select connection</Typography>
               <StyledDivider />
-              <Autocomplete
-                sx={{ width: "40%", marginBottom: "8px" }}
-                value={connection}
-                onChange={(event, newConnectionValue) => {
-                  setConnection(newConnectionValue);
-                }}
-                options={connections}
-                getOptionLabel={(o) => o.name}
-                renderInput={(params) => (
-                  <TextField {...params} placeholder="Select a connection" />
-                )}
-              />
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Autocomplete
+                  sx={{ width: "40%", marginBottom: "8px" }}
+                  value={connection}
+                  onChange={(event, newConnectionValue) => {
+                    setConnection(newConnectionValue);
+                  }}
+                  options={connections}
+                  getOptionLabel={(o) => o.name}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Select a connection" />
+                  )}
+                />
+                <Button variant="outlined" onClick={handleCreateConnection}>
+                  + Create connection
+                </Button>
+              </Box>
             </StyledPaper>
           )}
 
-          {mode === 'edit' && (
+          {mode === "edit" && (
             <StyledPaper>
               <Typography variant="h3">Select master item</Typography>
               <StyledDivider />
@@ -557,12 +610,17 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
                 }}
                 options={masterItems}
                 getOptionLabel={(option) => option.title}
-                renderInput={(params) => <TextField {...params} placeholder="Select a master item" />}
+                renderInput={(params) => (
+                  <TextField {...params} placeholder="Select a master item" />
+                )}
               />
             </StyledPaper>
           )}
 
-          {((mode === 'create' && connection !== null) || (mode === 'edit' && selectedMasterItem !== null)) && !loading && target ? (
+          {((mode === "create" && connection !== null) ||
+            (mode === "edit" && selectedMasterItem !== null)) &&
+          !loading &&
+          target ? (
             <>
               <StyledPaper>
                 <Typography variant="h3">Map expressions</Typography>
@@ -576,19 +634,21 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
                           <TableCell>{row.name}</TableCell>
                           <TableCell>{row.type}</TableCell>
                           <TableCell sx={{ padding: "8px", height: "40px" }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box
+                              sx={{ display: "flex", alignItems: "center", gap: 2 }}
+                            >
                               <TextField
-                                sx={{maxHeight: 32, margin: 0}}
+                                sx={{ maxHeight: 32, margin: 0 }}
                                 fullWidth
-                                value={row.expression || ''}
-                                onChange={(e) => handleFeatureChange(e.target.value, index)}
+                                value={row.expression || ""}
+                                onChange={(e) =>
+                                  handleFeatureChange(e.target.value, index)
+                                }
                                 placeholder="Enter expression"
                               />
                               <SearchableMenuButton
                                 options={variables
-                                  .filter(
-                                    (v) => !v.qIsConfig && !v.qIsScriptCreated
-                                  )
+                                  .filter((v) => !v.qIsConfig && !v.qIsScriptCreated)
                                   .map((v) => v.qName)}
                                 fields={fields}
                                 handleFeatureChange={handleFeatureChange}
@@ -641,7 +701,7 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
                   </AccordionSummary>
                   <AccordionDetails>
                     <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                      <Button onClick={handleCopy} sx={{ minWidth: 'auto' }}>
+                      <Button onClick={handleCopy} sx={{ minWidth: "auto" }}>
                         <Tooltip
                           open={showCopyMsg}
                           PopperProps={{
@@ -682,22 +742,50 @@ const AutoMLExpressionComponent = ({app, translator, open, setOpen}: AutoMLExpre
           ) : null}
         </StyledDialogContent>
         <DialogActions>
-          <Button onClick={() => handleClose()} variant="outlined" disabled={isCreatingMasterItem}>
+          <Button
+            onClick={() => handleClose()}
+            variant="outlined"
+            disabled={isCreatingMasterItem}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreateMasterItem}
             color="primary"
             variant="contained"
-            disabled={features.some((f) => f.expression === "") || masterItemName.trim() === "" || isCreatingMasterItem}
+            disabled={
+              features.some((f) => f.expression === "") ||
+              masterItemName.trim() === "" ||
+              isCreatingMasterItem
+            }
           >
-            {isCreatingMasterItem ? <CircularProgress size={24} /> : (mode === 'create' ? "Create master item" : "Update master item")}
+            {isCreatingMasterItem ? (
+              <CircularProgress size={24} />
+            ) : mode === "create" ? (
+              "Create master item"
+            ) : (
+              "Update master item"
+            )}
           </Button>
         </DialogActions>
       </StyledDialog>
-      <Snackbar open={showSuccessToast} autoHideDuration={3000} onClose={handleCloseToast}>
-        <Alert onClose={handleCloseToast} severity="success" sx={{ width: '100%' }}>
-          Master item {mode === 'create' ? 'created' : 'updated'} successfully!
+      <CreateDataConnection
+        open={createConnectionOpen}
+        onClose={() => setCreateConnectionOpen(false)}
+        onConnectionCreated={handleConnectionCreated}
+        appSpaceId={appSpaceId}
+      />
+      <Snackbar
+        open={showSuccessToast}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
+          Master item {mode === "create" ? "created" : "updated"} successfully!
         </Alert>
       </Snackbar>
     </Box>
