@@ -276,7 +276,7 @@ const AutoMLExpressionComponent = ({
         if (
           connection !== null &&
           features.length > 0 &&
-          returnField !== null &&
+          (target.type === "binary" || target.type === "multiclass") ? returnField !== null : true &&
           appSpaceId !== null
         ) {
           const dataTypes = features
@@ -303,7 +303,10 @@ const AutoMLExpressionComponent = ({
             connectionName = `${spaceName}:${connectionName}`;
           }
 
-          const exp = `endpoints.ScriptEvalEx('${dataTypes}','{"RequestType":"endpoint", "endpoint":{"connectionname":"${connectionName}", "column": "${returnField}"}}', \n ${fields}\n)`;
+          const hasReturnField = (target.type === "binary" || target.type === "multiclass") && returnField;
+          const columnParam = hasReturnField ? `"column": "${returnField}"` : '';
+          const endpointParams = columnParam ? `"connectionname":"${connectionName}", ${columnParam}` : `"connectionname":"${connectionName}"`;
+          const exp = `endpoints.ScriptEvalEx('${dataTypes}','{"RequestType":"endpoint", "endpoint":{${endpointParams}}}', \n ${fields}\n)`;
           setFinalExpression(exp);
         }
       };
