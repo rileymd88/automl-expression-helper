@@ -103,7 +103,7 @@ export type AutoMLConnection = {
   id: string;
   name: string;
   deploymentId: string;
-  deplyomentName: string;
+  deploymentName: string;
   spaceId: string;
 };
 
@@ -111,3 +111,64 @@ export type Target = {
   type: "binary" | "multiclass" | "regression";
   field: string;
 };
+
+export interface IGenericMeasureProperties {
+  qInfo: { qType: string };
+  qMeasure: {
+    qLabel: string;
+    qDef: string;
+    qExpressions: any[];
+    qActiveExpression: number;
+  };
+  qMetaDef: {
+    title: string;
+    description: string;
+  };
+  autoMlExpressionHelper?: {
+    features: Feature[];
+    connection: AutoMLConnection | null;
+    returnField: string | null;
+    target: Target;
+    returnFields: string[];
+  };
+}
+
+export interface IGenericMeasureLayout extends EngineAPI.IGenericBaseLayout {
+  qMeasure: {
+    qLabel: string;
+    qDef: string;
+  };
+  autoMlExpressionHelper?: {
+    features: Feature[];
+    connection: AutoMLConnection | null;
+    returnField: string | null;
+    target: Target;
+    returnFields: string[];
+  };
+}
+
+export interface IMeasureListLayout extends EngineAPI.IGenericBaseLayout {
+  qMeasureList: {
+    qItems: Array<{
+      qInfo: {
+        qId: string;
+      };
+      qMeta: {
+        title: string;
+      };
+    }>;
+  };
+}
+
+declare global {
+  namespace EngineAPI {
+    interface IApp {
+      getVariableListObject(): Promise<VariableModel>;
+      createMeasure(props: IGenericMeasureProperties): Promise<any>;
+      getMeasure(id: string): Promise<{
+        getLayout(): Promise<IGenericMeasureLayout>;
+        setProperties(props: IGenericMeasureProperties): Promise<void>;
+      }>;
+    }
+  }
+}

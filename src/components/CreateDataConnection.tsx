@@ -11,6 +11,7 @@ import {
   Box,
 } from '@mui/material';
 import { getAutoMLModels, getConnectionString, createDataConnection, getSpaces } from '../helper';
+import type { AutoMLConnection } from '../types';
 
 interface CreateDataConnectionProps {
   open: boolean;
@@ -27,13 +28,6 @@ interface AutoMLModel {
 interface Space {
   id: string;
   name: string;
-}
-
-interface AutoMLConnection {
-  id: string;
-  name: string;
-  deploymentId: string;
-  spaceId: string;
 }
 
 const CreateDataConnection: React.FC<CreateDataConnectionProps> = ({ open, onClose, onConnectionCreated, appSpaceId }) => {
@@ -69,25 +63,27 @@ const CreateDataConnection: React.FC<CreateDataConnectionProps> = ({ open, onClo
   }, [appSpaceId, spaces]);
 
   const handleCreate = async () => {
-    if (!selectedModel || !connectionName || !selectedSpace) return;
+    if (!connectionName || !selectedModel || !selectedSpace) return;
 
     setLoading(true);
     try {
       const connectionString = await getConnectionString(selectedModel.value);
-      const createdConnection = await createDataConnection(connectionString, connectionName, selectedSpace.id === 'personal' ? '' : selectedSpace.id);
-      const newConnection: AutoMLConnection = {
-        id: createdConnection.id,
-        name: createdConnection.qName,
-        deploymentId: selectedModel.value,
-        spaceId: selectedSpace.id,
-      };
-      onConnectionCreated(newConnection);
+      const result = await createDataConnection(connectionString, connectionName, selectedSpace.id === 'personal' ? '' : selectedSpace.id);
       
-      // Close dialog and reset form
-      onClose();
-      resetForm();
+      if (result && result.id) {
+        const newConnection: AutoMLConnection = {
+          id: result.id,
+          name: result.name || connectionName,
+          deploymentId: selectedModel.value,
+          deploymentName: selectedModel.name,
+          spaceId: selectedSpace.id
+        };
+        onConnectionCreated(newConnection);
+        resetForm();
+        onClose();
+      }
     } catch (error) {
-      console.error('Error creating data connection:', error);
+      console.error('Error creating connection:', error);
     } finally {
       setLoading(false);
     }

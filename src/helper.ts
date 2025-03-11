@@ -1,4 +1,5 @@
-import { Doc } from "@qlik/api/qix";
+import type { Doc } from "@qlik/api/qix";
+import type { AutoMLConnection as TypedAutoMLConnection, Variable } from "./types";
 
 type DataConnectionRequest = {
   id: string;
@@ -8,18 +9,35 @@ type DataConnectionRequest = {
   space: string;
 };
 
-type AutoMLConnection = {
-  id: string;
-  name: string;
-  deploymentId: string;
-  deplyomentName: string;
-  spaceId: string;
-};
+type AutoMLConnection = TypedAutoMLConnection;
 
 type FeatureRequest = {
   name: string;
   dtype: string;
 };
+
+export const createVariable = async (app: Doc, variableName: string, variableDefinition: string) => {
+  const variable = {
+    "qName": variableName,
+    "qDefinition": variableDefinition,
+    "qMeta": {
+      "privileges": [
+        "read",
+        "update",
+        "delete"
+      ]
+    },
+    "qInfo": {
+      "qType": "variable"
+    },
+    "qData": {
+      "tags": [],
+    }
+  }
+  return await app.createVariableEx(variable);
+}
+
+
 
 const parseDeploymentId = (str: string) => {
   const pattern = /deploymentId=([a-f\d-]+)/;
@@ -66,7 +84,7 @@ export const getConnections = async () => {
         id: dataConnections[i].connectionId,
         name: dataConnections[i].connectionName,
         deploymentId: json.data[0].resourceAttributes.modelId,
-        deplyomentName: json.data[0].name,
+        deploymentName: json.data[0].name,
         spaceId: dataConnections[i].spaceId,
       });
     }

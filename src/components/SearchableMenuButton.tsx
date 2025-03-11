@@ -6,25 +6,51 @@ import AddIcon from '@qlik-trial/sprout/icons/react/Add';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import { useTheme, Tabs, Tab } from '@mui/material';
-
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import { styled } from '@mui/material/styles';
+import { createVariable } from '../helper';
 interface SearchableMenuButtonProps {
   options: string[];
   fields: string[];
   handleFeatureChange: (expression: string, index: number) => void;
   index: number;
+  app?: EngineAPI.IApp;
 }
+
+// Styled components for the dialog
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiDialogContent-root': {
+    padding: theme.spacing(2),
+  },
+  '& .MuiDialogActions-root': {
+    padding: theme.spacing(1),
+  },
+}));
+
+const StyledDivider = styled(Divider)(() => ({
+  margin: '8px 0',
+}));
 
 const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({
   options,
   fields,
   handleFeatureChange,
-  index
+  index,
+  app
 }) => {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchText, setSearchText] = useState('');
   const [tabValue, setTabValue] = useState(0);
+  const [createVarDialogOpen, setCreateVarDialogOpen] = useState(false);
+  const [variableName, setVariableName] = useState('');
+  const [variableDefinition, setVariableDefinition] = useState('');
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -50,6 +76,39 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setSearchText('');
+  };
+
+  const handleCreateVarClick = () => {
+    setCreateVarDialogOpen(true);
+    handleClose();
+  };
+
+  const handleCreateVarDialogClose = () => {
+    setCreateVarDialogOpen(false);
+    setVariableName('');
+    setVariableDefinition('');
+  };
+
+  const handleCreateVariable = async () => {
+    if (!app || !variableName.trim() || !variableDefinition.trim()) {
+      return;
+    }
+    
+    try {
+      // Import the createVariable function from helper.ts
+      
+      
+      // Create the variable using the helper function
+      await createVariable(app, variableName, variableDefinition);
+      
+      // Select the newly created variable
+      handleFeatureChange(variableName, index);
+      
+      // Close the dialog
+      handleCreateVarDialogClose();
+    } catch (error) {
+      console.error('Error creating variable:', error);
+    }
   };
 
   const currentItems = tabValue === 0 ? fields : options;
@@ -145,6 +204,35 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({
           </Box>
         </MenuItem>
 
+        {/* Create Variable Option */}
+        {tabValue === 1 && app && (
+          <MenuItem 
+            onClick={handleCreateVarClick}
+            sx={{
+              borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+              padding: '10px 16px',
+              margin: '8px 0',
+              borderRadius: '4px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <AddIcon />
+              <Typography 
+                sx={{ 
+                  ml: 1.5,
+                  fontWeight: 500,
+                  fontSize: '0.95rem',
+                  color: 'text.primary',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                Create new variable
+              </Typography>
+            </Box>
+          </MenuItem>
+        )}
+
         {/* Items List Section */}
         <Box
           sx={{
@@ -159,6 +247,53 @@ const SearchableMenuButton: React.FC<SearchableMenuButtonProps> = ({
           ))}
         </Box>
       </Menu>
+
+      {/* Create Variable Dialog */}
+      <StyledDialog 
+        open={createVarDialogOpen} 
+        onClose={handleCreateVarDialogClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6">Create new variable</Typography>
+          <StyledDivider />
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="variable-name"
+            label="Variable name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={variableName}
+            onChange={(e) => setVariableName(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            id="variable-definition"
+            label="Variable definition" 
+            type="text"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={4}
+            value={variableDefinition}
+            onChange={(e) => setVariableDefinition(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCreateVarDialogClose} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleCreateVariable} color="primary" variant="contained">
+            Create
+          </Button>
+        </DialogActions>
+      </StyledDialog>
     </div>
   );
 };

@@ -54,6 +54,9 @@ import type {
   Feature,
   AutoMLConnection,
   Target,
+  IGenericMeasureProperties,
+  IGenericMeasureLayout,
+  IMeasureListLayout
 } from "../types";
 
 import { stardust } from "@nebula.js/stardust";
@@ -126,6 +129,8 @@ const AutoMLExpressionComponent = ({
   const [fields, setFields] = useState<string[]>([]);
   const [createConnectionOpen, setCreateConnectionOpen] = useState(false);
   const [newConnectionId, setNewConnectionId] = useState<string | null>(null);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const mapFeatures = async (tmpFeatures: Feature[]) => {
     if (!tmpFeatures || tmpFeatures.length === 0) {
@@ -246,7 +251,7 @@ const AutoMLExpressionComponent = ({
         try {
           let vm = variableModel;
           if (vm === null) {
-            vm = (await app.getVariableListObject()) as VariableModel;
+            vm = await app.getVariableListObject();
             setVariableModel(vm);
           }
           const vs = await vm.getLayout();
@@ -263,7 +268,6 @@ const AutoMLExpressionComponent = ({
     if (app) {
       const fetchAppSpaceId = async () => {
         const spaceId = await getAppSpaceId(app);
-        console.log("app space id", spaceId);
         setAppSpaceId(spaceId);
       };
       fetchAppSpaceId();
@@ -297,8 +301,8 @@ const AutoMLExpressionComponent = ({
             }
           });
 
-          let connectionName = connection.name;
-          if (connection.spaceId !== appSpaceId) {
+          let connectionName = connection?.name || '';
+          if (connection && connection.spaceId !== appSpaceId) {
             const spaceName = await getSpaceName(connection.spaceId);
             connectionName = `${spaceName}:${connectionName}`;
           }
@@ -351,45 +355,49 @@ const AutoMLExpressionComponent = ({
   };
 
   const handleCreateMasterItem = async () => {
-    if (app && masterItemName && finalExpression) {
-      setIsCreatingMasterItem(true);
-      try {
-        const measureDef = {
-          qInfo: {
-            qType: "measure",
-          },
-          qMeasure: {
-            qLabel: masterItemName,
-            qDef: finalExpression,
-          },
-          qMetaDef: {
-            title: masterItemName,
-            description: "",
-          },
-          autoMlExpressionHelper: {
-            features,
-            connection,
-            returnField,
-            target,
-            returnFields,
-          },
-        };
+    if (!app) return;
+    if (!masterItemName) {
+      setShowErrorToast(true);
+      setErrorMessage("Master item name is required");
+      return;
+    }
+    setIsCreatingMasterItem(true);
+    try {
+      const measureDef: IGenericMeasureProperties = {
+        qInfo: { qType: "measure" },
+        qMeasure: {
+          qLabel: masterItemName,
+          qDef: finalExpression,
+          qExpressions: [],
+          qActiveExpression: 0
+        },
+        qMetaDef: {
+          title: masterItemName,
+          description: "",
+        },
+        autoMlExpressionHelper: {
+          features,
+          connection,
+          returnField,
+          target,
+          returnFields,
+        },
+      };
 
-        if (mode === "create") {
-          await app.createMeasure(measureDef);
-        } else if (mode === "edit" && selectedMasterItem) {
-          const measure = await app.getMeasure(selectedMasterItem.qId);
-          await measure.setProperties(measureDef);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        handleClose();
-        setShowSuccessToast(true);
-      } catch (error) {
-        console.error("Error creating/updating master measure:", error);
-      } finally {
-        setIsCreatingMasterItem(false);
+      if (mode === "create") {
+        await app.createMeasure(measureDef);
+      } else if (mode === "edit" && selectedMasterItem) {
+        const measure = await app.getMeasure(selectedMasterItem.qId);
+        await measure.setProperties(measureDef);
       }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      handleClose();
+      setShowSuccessToast(true);
+    } catch (error) {
+      console.error("Error creating/updating master measure:", error);
+    } finally {
+      setIsCreatingMasterItem(false);
     }
   };
 
@@ -426,14 +434,14 @@ const AutoMLExpressionComponent = ({
         },
       });
 
-      const layout = await sessionObject.getLayout();
+      const layout = await sessionObject.getLayout() as unknown as IMeasureListLayout;
       const allItems = layout.qMeasureList.qItems;
 
       const filteredItems = await Promise.all(
         allItems.map(async (item: any) => {
           try {
             const measure = await app.getMeasure(item.qInfo.qId);
-            const measureLayout = await measure.getLayout();
+            const measureLayout = await measure.getLayout() as IGenericMeasureLayout;
             if (measureLayout.autoMlExpressionHelper) {
               return {
                 qId: item.qInfo.qId,
@@ -441,14 +449,14 @@ const AutoMLExpressionComponent = ({
               };
             }
           } catch (error) {
-            console.error(`Error fetching measure ${item.qInfo.qId}:`, error);
+            console.error("Error checking master item:", error);
           }
           return null;
         })
       );
 
       const validItems = filteredItems.filter(
-        (item): item is MasterItem => item !== null
+        (item: MasterItem | null): item is MasterItem => item !== null
       );
       setMasterItems(validItems);
     } catch (error) {
@@ -461,7 +469,7 @@ const AutoMLExpressionComponent = ({
 
     try {
       const measure = await app.getMeasure(masterItem.qId);
-      const layout = await measure.getLayout();
+      const layout = await measure.getLayout() as IGenericMeasureLayout;
       const { qLabel, qDef } = layout.qMeasure;
       const autoMlExpressionHelper = layout.autoMlExpressionHelper;
       setMasterItemName(qLabel);
@@ -539,7 +547,7 @@ const AutoMLExpressionComponent = ({
         variant="outlined"
         onClick={handleClickOpen}
       >
-        {translator.get("Create AutoML Expression")}
+        {translator.get("Create AutoML expression")}
       </Button>
       <StyledDialog
         sx={{
@@ -656,6 +664,7 @@ const AutoMLExpressionComponent = ({
                                 fields={fields}
                                 handleFeatureChange={handleFeatureChange}
                                 index={index}
+                                app={app}
                               />
                             </Box>
                           </TableCell>
@@ -775,7 +784,7 @@ const AutoMLExpressionComponent = ({
       <CreateDataConnection
         open={createConnectionOpen}
         onClose={() => setCreateConnectionOpen(false)}
-        onConnectionCreated={handleConnectionCreated}
+        onConnectionCreated={(connection: AutoMLConnection) => handleConnectionCreated(connection)}
         appSpaceId={appSpaceId}
       />
       <Snackbar
@@ -783,12 +792,19 @@ const AutoMLExpressionComponent = ({
         autoHideDuration={3000}
         onClose={handleCloseToast}
       >
-        <Alert
-          onClose={handleCloseToast}
-          severity="success"
-          sx={{ width: "100%" }}
-        >
-          Master item {mode === "create" ? "created" : "updated"} successfully!
+        <Alert onClose={handleCloseToast} severity="success">
+          {mode === "create"
+            ? "Master item created successfully"
+            : "Master item updated successfully"}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={showErrorToast}
+        autoHideDuration={3000}
+        onClose={() => setShowErrorToast(false)}
+      >
+        <Alert onClose={() => setShowErrorToast(false)} severity="error">
+          {errorMessage}
         </Alert>
       </Snackbar>
     </Box>

@@ -1,6 +1,6 @@
 {
   "name": "automl-expression-helper",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "packageManager": "yarn@1.22.19",
   "description": "AutoML expression helper",
   "author": "Riley MacDonald",
