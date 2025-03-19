@@ -308,8 +308,8 @@ const AutoMLExpressionComponent = ({
           }
 
           const hasReturnField = (target.type === "binary" || target.type === "multiclass") && returnField;
-          const columnParam = hasReturnField ? `"column": "${returnField}"` : '';
-          const endpointParams = columnParam ? `"connectionname":"${connectionName}", ${columnParam}` : `"connectionname":"${connectionName}"`;
+          const columnParam = hasReturnField ? `"column": "${returnField}"` : `"column": "${target.field}_predicted"`;
+          const endpointParams = `"connectionname":"${connectionName}", ${columnParam}`;
           const exp = `endpoints.ScriptEvalEx('${dataTypes}','{"RequestType":"endpoint", "endpoint":{${endpointParams}}}', \n ${fields}\n)`;
           setFinalExpression(exp);
         }
